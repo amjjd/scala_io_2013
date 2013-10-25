@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>How to survive one of the biggest spikes in e‐commerce ‐ the story of the Gilt load testing platform</title>
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="css/reveal.min.css">
+		<link rel="stylesheet" href="css/theme/night.css" id="theme">
+
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<script>
+			document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+		</script>
+		
+		<style>
+			.reveal section img {
+				border: none;
+				box-shadow: none;
+				background: none;
+			}
+			
+			#top, #bottom {
+				position: absolute;
+				z-index: 1000;
+				left: 0;
+				width: 100%;
+				background-repeat: no-repeat;
+				background-size: contain;
+			}
+			
+			#top {
+				top: 0;
+				height: 5%;
+				background-color: black;
+				background-image: url('assets/logo-scalaio.png');
+				background-repeat: no-repeat;
+				background-size: contain;
+			}
+			
+			#bottom {
+				bottom: 0;
+				height: 4%;
+				background-color: white;
+				background-image: url('assets/sponsors.png');
+				background-position: right;
+			}
+			
+			@font-face {
+				font-family: 'digital-7_monoitalic';
+				src: url('assets/digital-7_mono_italic-webfont.eot');
+				src: url('assets/digital-7_mono_italic-webfont.eot?#iefix') format('embedded-opentype'),
+					 url('assets/digital-7_mono_italic-webfont.woff') format('woff'),
+					 url('assets/digital-7_mono_italic-webfont.ttf') format('truetype'),
+					 url('assets/digital-7_mono_italic-webfont.svg#digital-7_monoitalic') format('svg');
+				font-weight: normal;
+				font-style: normal;
+			}
+			
+			h1.led {
+				font-family: 'digital-7_monoitalic';
+				font-size: 4.5em;
+				color: lime;
+				text-shadow: 0 0 10px lime;
+			}
+			
+			del {
+				color: red;
+			}
+			
+			ins {
+				color: lime;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="top"></div>
+		<div id="bottom"></div>
+		
+		<div class="reveal">
+			<div class="slides">
+				<section data-transition="none">
+					<h1 class="led">11:59</h1>
+				</section>
+				<section data-transition="none">
+					<h1 class="led">12:00</h1>
+				</section>
+				<section>
+					<h4 class="fragment" style="text-align: left">How to survive one of the biggest spikes in e‐commerce ...</h4>
+				    <img src="assets/spike.png">
+					<h4 class="fragment" style="text-align: right">... the story of the Gilt load testing platform<br>
+					  <span style="font-size: 50%">Andrew Duffy <a href="http://twitter.com/amjjd">@amjjd</a><span></h4>
+				</section>
+				<section data-background="assets/gilt.jpg">
+					<img style="position: relative; left: 120px" src="assets/logo-gilt.png">
+				</section>
+				<section>
+					<section>
+						<h2>A long time ago...</h2>
+					</section>
+					<section>
+						<img src="assets/ruby.png">
+					</section>
+					<section>
+						<h2>... worked well, until ...</h2>
+					</section>
+					<section data-background="assets/louboutin.png">
+					</section>
+				</section>
+				<section>
+					<section>
+						<h2>Make the site fast enough: 1000 servers, or ...</h2>
+					</section>
+					<section>
+						<img src="assets/java.png">
+					</section>
+					<section>
+						<h2>(and, lately)<h2>
+						<img src="assets/scala.png">
+					</section>
+				</section>
+				<section>
+					<section>
+						<h2>Is it fast enough now?</h2>
+					</section>
+					<section>
+						<img src="assets/soasta.png">
+					</section>
+					<section>
+						<img src="assets/jmeter.jpg">
+						<h4>+ custom tooling</h4>
+					</section>
+					<section>
+						<h2>Problems</h2>
+						<ul>
+							<li class="fragment">Expensive to scale</li>
+							<li class="fragment">GUI for writing simulations :(</li>
+							<li class="fragment">No adoption by developers</li>
+						</ul>
+					</section>
+				</section>
+				<section>
+					<section>
+						<img src="assets/gatling.png">
+					</section>
+					<section>
+						<h2>Scala DSL :)</h2>
+						<pre><code data-trim>
+.repeat(5) {
+  pauseExp(pause seconds)
+  .randomSwitch(
+    75 ->
+      feed(storesActiveSaleUrls)
+      .exec(http("stores-sale").get("${saleUrl}").headers(acceptHtml).check(status.is(200))),
+    25 ->
+      feed(homeActiveSaleUrls)
+      .exec(http("home-sale").get("${saleUrl}").headers(acceptHtml).check(status.is(200)))
+  )
+}
+						</code></pre>
+					</section>
+					<section>
+					    <h2>Complex interactions in code</h2>
+						<pre><code data-trim>
+// simulate typing in the box by running successive autocomplete searches
+.repeat((s: Session) => 4 min s.getTypedAttribute[String]("query").length, "i")(
+  exec((s: Session) => s.setAttribute("prefix", s.getTypedAttribute[String]("query") take s.getTypedAttribute[Int]("i")+1))
+  .exec(
+    http("autocomplete")
+      .get("/autocomplete")
+      .queryParam("q.query", "${prefix}")
+      .queryParam("q.store", "${store}")
+      .headers(acceptJson)
+      .check(status.is(200))
+  )
+  .pause(0 milliseconds, 30 milliseconds)
+)
+						</code></pre>
+					</section>
+					<section>
+						<img src="assets/gatling-report.png">
+					</section>
+					<section>
+						<h2>Process</h2>
+						<ul>
+							<li class="fragment">Domain knowledge & Splunk to model load</li>
+							<li class="fragment">Create an SBT subproject for your test</li>
+							<li class="fragment">Write & test</li>
+							<li class="fragment"><code>sbt release</code> to create a jar, tag & publish</li>
+							<li class="fragment">Jenkins job to test production from EC2 ...</li>
+						</ul>
+					</section>
+					<section>
+						<img src="assets/tooling.png">
+					</section>
+					<section>
+						<img src="assets/tooling-chart.png">
+					</section>
+				</section>
+				<section>
+					<section>
+						<h2>Lessons</h2>
+					</section>
+					<section data-background="assets/louboutin.png">
+						<h2 class="fragment" style="position: relative; left: -1%">(again)</h2>
+					</section>
+					<section>
+						<h2>Modelling real load is hard</h2>
+						<ul>
+							<li class="fragment">1 minute resolution (New Relic) is not enough</li>
+							<li class="fragment">Need to synchronize multiple load generators</li>
+							<li class="fragment">Modelled real load can break the site!</li>
+						</ul>
+					</section>
+					<section>
+						<h2>Developers are lazy ;)</h2>
+						<ul>
+							<li class="fragment">Load tests not kept up to date</li>
+							<li class="fragment">Failures are ignored</li>
+							<li class="fragment">Too much copypasta to create a new test</li>
+						</ul>
+					</section>
+				</section>
+				<section>
+					<div style="display: table">
+						<figure style="display: table-cell">
+							<img src="assets/the-future.jpg">
+						</figure>
+						<h2 style="display: table-cell; vertical-align: middle; padding-left: 20pt">The future</h2>
+					</div>
+				</section>
+				<section>
+					<h2>The new new platform</h2>
+					<ul>
+						<li class="fragment">Load test in the service repo (SBT FTW!)</li>
+						<li class="fragment"><del><code>#!/bin/bash</code></del> <ins>Scala</ins></li>
+						<li class="fragment"><del>Jenkins</del> <ins>?</ins></li>
+					</ul>
+				</section>
+				<section>
+					<section>
+						<img src="assets/logo-docker.png">
+					</section>
+					<section>
+						<h2>Load testing as part of a deployment</h2>
+						<ul>
+							<li class="fragment">Deployments create a new fleet in containers ...</li>
+							<li class="fragment">... run tests, including load tests ...</li>
+							<li class="fragment">... then switch traffic from the old fleet ...</li>
+							<li class="fragment">... which is kept running, just in case.</li>
+						</ul>
+					</section>
+				</section>
+				<section>
+					<section data-background="assets/smoking-gun.jpg">
+					</section>
+					<section>
+						<h2>The Smoking Gun Detector &copy;</h2>
+						<ul>
+							<li class="fragment">Compare data from Gatling, New Relic & more to previous runs to detect the cause of a failed test</li>
+							<li class="fragment">R, the <a href="http://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Smirnov_test">Kolmogorov Smirnov test</a>, ... ?</li>
+						</ul>
+					</section>
+				</section>
+				<section data-background="assets/IMG_0107.jpg">
+					<div style="position: relative; top: 150px">
+						<h2>Thank you!</h2>
+						<h3><a href="http://twitter.com/amjjd">@amjjd</a></h3>
+						<h3><a href="http://github.com/amjjd">github.com/amjjd</a></h3>
+					</div>
+				</section>
+			</div>
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.min.js"></script>
+
+		<script>
+			Reveal.initialize({
+				controls: false,
+				progress: false,
+				history: true,
+				center: true,
+				transition: "zoom",
+
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+					{ src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
